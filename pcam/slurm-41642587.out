@@ -1,0 +1,179 @@
+out/117  does NOT exists
+dataset: pcam_rgb224_sp200	arch: resnet20_fp	num_workers: 1	seed: None	batch_size: 32	epochs: 20	optimizer_m: SGD	lr_m: 0.1	lr_m_end: 0.0	decay_schedule_m: 150-300	momentum: 0.9	weight_decay: 0.0001	lr_scheduler_m: cosine	gamma: 0.1	gpu_id: 0	
+Initializing Datasets and Dataloaders...
+train datasets: Dataset ImageFolder
+    Number of datapoints: 262144
+    Root location: /work/deogun/alali/data/pcam_rgb224_sp200/train
+    StandardTransform
+Transform: Compose(
+               RandomHorizontalFlip(p=0.5)
+               RandomVerticalFlip(p=0.5)
+               ToTensor()
+           ) 
+val: Dataset ImageFolder
+    Number of datapoints: 32768
+    Root location: /work/deogun/alali/data/pcam_rgb224_sp200/val
+    StandardTransform
+Transform: Compose(
+               ToTensor()
+           ) 
+test: Dataset ImageFolder
+    Number of datapoints: 32768
+    Root location: /work/deogun/alali/data/pcam_rgb224_sp200/test
+    StandardTransform
+Transform: Compose(
+               ToTensor()
+           )
+The number of parameters :  269330
+2022-06-20 11:22:00.686415: I tensorflow/stream_executor/platform/default/dso_loader.cc:48] Successfully opened dynamic library libcudart.so.10.1
+2022-06-20 11:22:00.805181: I tensorflow/stream_executor/platform/default/dso_loader.cc:48] Successfully opened dynamic library libcudart.so.10.1
+========= Epoch: [0/20] =========
+train loop for 8192 iterations
+torch images shape: torch.Size([32, 3, 224, 224]), type=torch.float32, min=0.0, max=1.0
+count zeros torch: total - nonzero = 4816896 - 3646994 = 1169902
+0 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  1.607087254524231
+500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.5776596069335938
+1000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.6357810497283936
+1500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.40340539813041687
+2000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.5876964926719666
+2500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2800331711769104
+3000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3943174183368683
+3500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.5570300817489624
+4000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.28677165508270264
+4500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.4128970205783844
+5000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2577756643295288
+5500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.53363037109375
+6000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.6160975098609924
+6500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2930952310562134
+7000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.4849238097667694
+7500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.41883066296577454
+8000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3334626853466034
+loop validation for 1024 iterations
+val j = 0, correct classified = 27
+val j = 500, correct classified = 13510
+val j = 1000, correct classified = 24692
+Current epoch: 000 	 Val accuracy: 76.9439697265625 %
+========= Epoch: [1/20] =========
+train loop for 8192 iterations
+torch images shape: torch.Size([32, 3, 224, 224]), type=torch.float32, min=0.0, max=1.0
+count zeros torch: total - nonzero = 4816896 - 4117106 = 699790
+0 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.5189955830574036
+500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.46266207098960876
+1000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.45683205127716064
+1500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3161028325557709
+2000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.1761280745267868
+2500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.4032241702079773
+3000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.4625111222267151
+3500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3262609839439392
+4000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.40114539861679077
+4500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3350118100643158
+5000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2394442856311798
+5500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.392027348279953
+6000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2407224476337433
+6500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.39131247997283936
+7000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.37294137477874756
+7500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3400842249393463
+8000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3127211034297943
+loop validation for 1024 iterations
+val j = 0, correct classified = 31
+val j = 500, correct classified = 15414
+val j = 1000, correct classified = 25503
+Current epoch: 001 	 Val accuracy: 79.1748046875 %
+========= Epoch: [2/20] =========
+train loop for 8192 iterations
+torch images shape: torch.Size([32, 3, 224, 224]), type=torch.float32, min=0.0, max=1.0
+count zeros torch: total - nonzero = 4816896 - 3298650 = 1518246
+0 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.39120516180992126
+500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.45160433650016785
+1000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.4233861565589905
+1500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.43384838104248047
+2000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.23243828117847443
+2500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3576122224330902
+3000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3310237526893616
+3500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.38727647066116333
+4000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.33774903416633606
+4500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.29064705967903137
+5000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.33113113045692444
+5500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2937746047973633
+6000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.22506366670131683
+6500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3969995081424713
+7000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.19849129021167755
+7500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.17385190725326538
+8000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.25127479434013367
+loop validation for 1024 iterations
+val j = 0, correct classified = 25
+val j = 500, correct classified = 13238
+val j = 1000, correct classified = 27645
+Current epoch: 002 	 Val accuracy: 86.370849609375 %
+========= Epoch: [3/20] =========
+train loop for 8192 iterations
+torch images shape: torch.Size([32, 3, 224, 224]), type=torch.float32, min=0.0, max=1.0
+count zeros torch: total - nonzero = 4816896 - 3555650 = 1261246
+0 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2762652635574341
+500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.43463724851608276
+1000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.4355832040309906
+1500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.5165415406227112
+2000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.27804574370384216
+2500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2018088698387146
+3000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.20631606876850128
+3500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.14728781580924988
+4000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.29670074582099915
+4500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.7517749667167664
+5000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.19090044498443604
+5500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.31424015760421753
+6000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.41427651047706604
+6500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2908169627189636
+7000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.12904967367649078
+7500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2632725238800049
+8000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.24801892042160034
+loop validation for 1024 iterations
+val j = 0, correct classified = 30
+val j = 500, correct classified = 14994
+val j = 1000, correct classified = 26979
+Current epoch: 003 	 Val accuracy: 83.9630126953125 %
+========= Epoch: [4/20] =========
+train loop for 8192 iterations
+torch images shape: torch.Size([32, 3, 224, 224]), type=torch.float32, min=0.0, max=1.0
+count zeros torch: total - nonzero = 4816896 - 3489874 = 1327022
+0 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3042038083076477
+500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.1486188769340515
+1000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.32700908184051514
+1500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.14833946526050568
+2000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.25487032532691956
+2500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3314658999443054
+3000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.22602874040603638
+3500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.16639190912246704
+4000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3640455901622772
+4500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.12108808755874634
+5000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2453920543193817
+5500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.1482401192188263
+6000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.19642598927021027
+6500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.4228788912296295
+7000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.24343733489513397
+7500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.08911149203777313
+8000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.46492233872413635
+loop validation for 1024 iterations
+val j = 0, correct classified = 30
+val j = 500, correct classified = 14635
+val j = 1000, correct classified = 27812
+Current epoch: 004 	 Val accuracy: 86.676025390625 %
+========= Epoch: [5/20] =========
+train loop for 8192 iterations
+torch images shape: torch.Size([32, 3, 224, 224]), type=torch.float32, min=0.0, max=1.0
+count zeros torch: total - nonzero = 4816896 - 3988062 = 828834
+0 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2834150493144989
+500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.1350322961807251
+1000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.17288260161876678
+1500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.2162252515554428
+2000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.5798832774162292
+2500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.5288446545600891
+3000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.14371813833713531
+3500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.07339265197515488
+4000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.3244764506816864
+4500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.18039222061634064
+5000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.19844329357147217
+5500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.1905447393655777
+6000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.11489573866128922
+6500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.16992156207561493
+7000 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.4839932322502136
+7500 - batch shape:  torch.Size([32, 3, 224, 224])  loss:  0.4327995479106903
