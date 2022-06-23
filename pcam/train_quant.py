@@ -6,7 +6,7 @@ import random
 import torch
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
-import torchvision.datasets as dsets
+import torchvision.datasets as datasets
 import numpy as np
 import torch.nn as nn
 
@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser(description="PyTorch Implementation of EWGS (CI
 # data and model
 parser.add_argument('--dataset', type=str, default='pcam', help='dataset to use')
 parser.add_argument('--arch', type=str, default='resnet20_quant', help='model architecture')
-parser.add_argument('--num_workers', type=int, default=4, help='number of data loading workers')
+parser.add_argument('--num_workers', type=int, default=1, help='number of data loading workers')
 parser.add_argument('--seed', type=int, default=None, help='seed for initialization')
 
 # training settings
@@ -122,14 +122,15 @@ transform_test = transforms.Compose([
 ])
 
 #if args.dataset == 'cifar10':
+data_dir = '/work/deogun/alali/data/'
+data_dir = os.path.join(data_dir, args.dataset)
 args.num_classes = 2
-train_dataset = dsets.CIFAR10(root='../data/CIFAR10/',
-                                train=True, 
-                                transform=transform_train,
-                                download=True)
-test_dataset = dsets.CIFAR10(root='../data/CIFAR10/',
-                            train=False, 
-                            transform=transform_test)
+train_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'train'),
+         transform=transform_train)
+val_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'val'), 
+                    transform=transform_test)
+test_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'test'),
+                                    transform=transform_test)
 #elif args.dataset == 'cifar100':
 #    args.num_classes = 100
 #    train_dataset = dsets.CIFAR100(root='../data/CIFAR100/',
@@ -141,6 +142,7 @@ test_dataset = dsets.CIFAR10(root='../data/CIFAR10/',
 #                            transform=transform_test)
 #else:
 #    raise NotImplementedError
+print('train datasets: {} \nval: {} \ntest: {}'.format(train_dataset, val_dataset, test_dataset))
 
 train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                            batch_size=args.batch_size,

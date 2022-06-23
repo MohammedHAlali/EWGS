@@ -4,6 +4,7 @@ import os
 import random
 import glob
 from PIL import Image
+from time import time
 
 import torch
 import torch.nn as nn
@@ -184,15 +185,26 @@ print('train datasets: {} \nval: {} \ntest: {}'.format(train_dataset, val_datase
 train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                            batch_size=args.batch_size,
                                            shuffle=True,
-                                           num_workers=args.num_workers)
+                                           num_workers=args.num_workers,
+                                           pin_memory=True)
 val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
-        batch_size = args.batch_size//2,
+        batch_size = args.batch_size,
         shuffle=False,
         )
 test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                           batch_size=1,
                                           shuffle=False,
                                           num_workers=args.num_workers)
+
+# Test time for loading training data ##
+#source: https://chtalhaanwar.medium.com/pytorch-num-workers-a-tip-for-speedy-training-ed127d825db7
+#start_time = time()
+#for i, data in enumerate(train_loader):
+#    pass
+#end_time = time()
+#print('Simulated training \nfinished with {} seconds, num_workers={}'.format(end_time-start_time, 
+#    args.num_workers))
+#exit()
 #print('train loader: ', list(train_loader))
 #print('test loader: ', list(test_loader))
 ### initialize model
@@ -239,9 +251,11 @@ if args.lr_scheduler_m == "step":
         milestones_m = list(map(lambda x: int(x), args.decay_schedule_m.split('-')))
     else:
         milestones_m = [args.epochs+1]
-    scheduler_m = torch.optim.lr_scheduler.MultiStepLR(optimizer_m, milestones=milestones_m, gamma=args.gamma)
+    scheduler_m = torch.optim.lr_scheduler.MultiStepLR(optimizer_m, milestones=milestones_m, 
+            gamma=args.gamma, verbose=True)
 elif args.lr_scheduler_m == "cosine":
-    scheduler_m = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_m, T_max=args.epochs, eta_min=args.lr_m_end)
+    scheduler_m = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_m, T_max=args.epochs, 
+            eta_min=args.lr_m_end, verbose=True)
 
 criterion = nn.CrossEntropyLoss()
 
@@ -251,10 +265,11 @@ writer = SummaryWriter(log_dir)
 total_iter = 0
 best_acc = 0
 iter_print = 0
+best_epoch = 0
 train_loss_list = []
 val_loss_list = []
 if('pcam' in args.dataset):
-    iter_print = 500
+    iter_print = 1000
 else:
     iter_print = 10
 for ep in range(args.epochs):
@@ -347,6 +362,7 @@ for ep in range(args.epochs):
         }, os.path.join(log_dir,'checkpoint/last_checkpoint.pth'))
         if(val_acc > best_acc):
             best_acc = val_acc
+            best_epoch = ep
             torch.save({
                 'epoch':ep,
                 'model':model.state_dict(),
@@ -371,11 +387,14 @@ print('train valid loss curve figure saved in path: ', fig_path)
 
 ##### Testing/Inference Phase ####
 ### Test accuracy @ last checkpoint
-trained_model = torch.load(os.path.join(log_dir,'checkpoint/last_checkpoint.pth'))
+trained_model = torch.load(os.path.join(log_dir,'checkpoint/best_checkpoint.pth'))
 model.load_state_dict(trained_model['model'])
 
 num_zeros = 0
 #TODO: check values of state dict
+#source:
+#https://discuss.pytorch.org/t/how-can-l-load-my-best-model-as-a-feature-extractor-evaluator/17254/2
+#https://discuss.pytorch.org/t/how-can-i-extract-intermediate-layer-output-from-loaded-cnn-model/77301/27
 for i, (name, param) in enumerate(model.named_parameters()):
     if('conv' in name or 'linear' in name):
         print('{}- name: {}, shape={}'.format(i, name, param.shape))
@@ -423,4 +442,4 @@ with torch.no_grad():
 
 from sklearn.metrics import classification_report as class_rep
 print(class_rep(y_pred=y_pred, y_true=y_true))
-print('out dir', out_dir)
+print('out dir', out_dir, ' dataset: ', args.dataset)
