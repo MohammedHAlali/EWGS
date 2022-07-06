@@ -7,7 +7,7 @@ from custom_modules import *
 #https://github.com/XHPlus/IR-Net/blob/master/resnet-20-cifar10/1w1a/resnet.py
 #https://github.com/akamaster/pytorch_resnet_cifar10/blob/master/resnet.py
 
-__all__ = ['resnet20_quant', 'resnet20_fp']
+__all__ = ['resnet20_quant', 'resnet20_fp', 'resnet20_test']
 
 class LambdaLayer(nn.Module):
     def __init__(self, lambd):
@@ -123,7 +123,7 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.bn2(out)
         out = self.linear(out)
-        return out
+        return out, self.conv1, [self.layer1, self.layer2, self.layer3], self.linear
 
 def resnet20_fp(args):
     return ResNet(BasicBlock, [3, 3, 3], args)

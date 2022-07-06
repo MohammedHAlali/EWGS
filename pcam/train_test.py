@@ -15,8 +15,7 @@ import numpy as np
 import torch.nn as nn
 from torchsummary import summary
 import matplotlib.pyplot as plt
-import custom_models
-from custom_models import resnet20_fp
+from custom_models import resnet20_fp, resnet20_test
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -147,6 +146,36 @@ val_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'val'),
 test_dataset = datasets.ImageFolder(root=os.path.join(data_dir, 'test'),
                             transform=transform_test)
 
+#analyze one sample for zero numbers
+#sample_img = glob.glob(os.path.join(data_dir, 'train', '*', '*.png'))[0]
+#print('sample img path: ', sample_img)
+#images = []
+#pil_images = []
+#for s in sample_img:
+#pil_im = Image.open(sample_img)
+#pil_images.append(pil_im)
+#im = np.array(pil_im)
+#images.append(im)
+#print('np im shape: {}, max={}, min={}, type={}'.format(im.shape, np.amax(im), np.amin(im), im.dtype))
+#np_images = np.array(images)
+#print('np images shape: {}, max={}, min={}, type={}'.format(np_images.shape, 
+#    np.amax(np_images), np.amin(np_images), np_images.dtype))
+#non_zero = np.count_nonzero(im)
+#total_shape = np.prod(list(im.shape))
+#zero_count = total_shape - non_zero
+#print('total_shape - non_zero = zero count = {} - {} = {}'.format(total_shape, non_zero, zero_count))
+
+#torch_img = transform_train(pil_im)
+#print('torch_img shape={}, type={}'.format(torch_img.shape, torch_img.dtype))
+#non_zero = torch.count_nonzero(torch_img)
+#print('torch non zero count: ', non_zero)
+#np_img = torch_img.numpy()
+#np_img = np.swapaxes(np_img, 0, 2)*225
+#np_img = np_img.astype('uint8')
+#print('np img: {}, max={}, min={}, type={}'.format(np_img.shape, np.amax(np_img), np.amin(np_img), np_img.dtype))
+#pil_img = Image.fromarray(np_img)
+#print('pil img: ', pil_img)
+#pil_img.save(args.dataset+'_sample_torch.png')
 
 print("Initializing Datasets and Dataloaders...")
 # Create training and validation datasets
@@ -183,7 +212,7 @@ model_class = globals().get(args.arch)
 #print('model class: ', model_class)
 model = model_class(args)
 model.to(device)
-print('model arch: \n', model)
+#print('model arch: \n', model)
 #i = 1
 #for name, layer in model.named_modules():
 #    if(isinstance(layer, nn.Conv2d)):
@@ -193,7 +222,6 @@ print('model arch: \n', model)
 #    i = i + 1
 
 #summary(model, (3, 224, 224))
-
 num_total_params = sum(p.numel() for p in model.parameters())
 print("The number of parameters : ", num_total_params)
 logging.info("The number of parameters : {}".format(num_total_params))
@@ -252,30 +280,23 @@ for ep in range(args.epochs):
     for i, (images, labels) in enumerate(train_loader):
         images = images.to(device)
         labels = labels.to(device)
-        optimizer_m.zero_grad()
-        output = model(images)
-        pred = output[0]
         if(i == 0):
+            #np_images = images.cpu().detach().numpy()
+            #image = images[0] We want number of zeros in the entire batch
+            #print('images shape: ', images.shape)
+            #print('np images shape: {}, type={}, min={}, max={}'.format(np_images.shape, np_images.dtype, np.amin(np_images), np.amax(np_images)))
+            #non_zeros = np.count_nonzero(np_images)
+            #total_shape = np.prod(np_images.shape)
+            #num_zeros = total_shape - non_zeros
+            #print('count zero np => total - nonzero = {} - {} = {}'.format(total_shape, non_zeros, num_zeros))
             t_non_zeros = torch.count_nonzero(images)
             t_total_shape = torch.prod(torch.tensor(images.shape))
             t_num_zeros = t_total_shape - t_non_zeros
             print('torch images shape: {}, type={}, min={}, max={}'.format(images.shape, images.dtype, torch.min(images), torch.max(images)))
             print('count zeros torch: total - nonzero = {} - {} = {}'.format(t_total_shape, 
                 t_non_zeros, t_num_zeros))
-        if(type(output[1]) == nn.Conv2d):
-            w = output[1].weight
-            print('first conv2d: {}, weight shape={}'.format(output[1], w.shape))
-            layer_out = output[1](images)
-            w_non_zero = torch.count_nonzero(w)
-            w_total_shape = torch.prod(torch.tensor(w.shape))
-            w_num_zero = w_total_shape - w_non_zero
-            print('weights num zero: total - nonzero = {}-{}={} '.format(w_total_shape, w_non_zero, w_num_zero))
-            l_out = layer_out
-            print('layer out shape: ', l_out.shape)
-            l_non_zero = torch.count_nonzero(l_out)
-            l_total_shape = torch.prod(torch.tensor(l_out.shape))
-            l_num_zero = l_total_shape - l_non_zero
-            print('layer out num zero: total - nonzero = {}-{}={} '.format(l_total_shape, l_non_zero, l_num_zero))
+        optimizer_m.zero_grad()
+        pred = model(images)
         loss_t = criterion(pred, labels)
         if(i % iter_print == 0):
             print(i, '- batch shape: ', images.shape, ' loss: ', loss_t.item()) 
@@ -291,6 +312,23 @@ for ep in range(args.epochs):
     scheduler_m.step()
 
     with torch.no_grad():
+        #model.eval()
+        #correct_classified = 0
+        #total = 0
+        #TODO: why another train_loader?? ==> validation
+        #for i, (images, labels) in enumerate(val_loader):
+        #    images = images.to(device)
+        #    labels = labels.to(device)
+            #print('validation i={}, images shape={}, labels shape={}'.format(i, images.shape, labels.shape))
+        #    pred = model(images)
+        #    _, predicted = torch.max(pred.data, 1)
+        #    total += pred.size(0)
+        #    correct_classified += (predicted == labels).sum().item()
+        #    if(i % 200 == 0):
+        #        print('val i = {}, correct_classified={}'.format(i, correct_classified))
+        #val_acc = correct_classified/total*100
+        #print('val accuracy: ', val_acc)
+        #writer.add_scalar('val/acc', val_acc, ep)
 
         model.eval()
         correct_classified = 0
@@ -333,12 +371,11 @@ for ep in range(args.epochs):
             }, os.path.join(log_dir,'checkpoint/best_checkpoint.pth'))  
     
 
-print('best epoch: ', best_epoch)
 #PLOT train val loss curve
 plt.figure()
 plt.plot(train_loss_list, 'g--', label='training loss')
 plt.plot(val_loss_list, '-', label='validation loss')
-plt.title('Training and Validation Loss, {}'.format(args.dataset))
+plt.title('Training and Validation Loss')
 plt.ylabel('Loss')
 plt.xlabel('Epoch')
 plt.legend(loc='upper left')
@@ -352,83 +389,6 @@ print('train valid loss curve figure saved in path: ', fig_path)
 trained_model = torch.load(os.path.join(log_dir,'checkpoint/best_checkpoint.pth'))
 model.load_state_dict(trained_model['model'])
 
-#source: https://discuss.pytorch.org/t/how-can-i-extract-intermediate-layer-output-from-loaded-cnn-model/77301/2
-activation = {}
-def get_activation(name):
-    def hook(model, input, output):
-        activation[name] = output.detach()
-    return hook
-model.linear.register_forward_hook(get_activation('linear'))
-#output = model(x)
-print('activation[linear]: ', activation[linear])
-"""
-a_batch_img, _ = next(iter(train_loader))
-print('a batch img shape: ', a_batch_img.shape)
-#a_batch_img = transforms.ToTensor()(a_batch_img)
-print('type={}, min={}, max={}'.format(torch.min(a_batch_img), torch.max(a_batch_img), type(a_batch_img)))
-non_zeros = torch.count_nonzero(a_batch_img)
-total_shape = torch.prod(torch.tensor(a_batch_img.shape)) #or use numel()
-num_zeros = total_shape - non_zeros
-print('Input fmap: count zeros: total - nonzero = {} - {} = {}'.format(total_shape, non_zeros, num_zeros))
-images_out = a_batch_img.to(device)
-
-for i, layer in enumerate(model.children()):
-    #feed input to layer
-    #take output, set as input for next layer in the loop
-    if(type(layer) == nn.Conv2d):
-        print(i, '- layer: ', layer)
-        print('input shape: ', images_out.shape)
-        images_out = layer(images_out)
-        print('layer weights shape: ', layer.weight.shape)
-        print('layer out shape: ', images_out.shape)
-        non_zeros = torch.count_nonzero(images_out)
-        w_non_zeros = torch.count_nonzero(layer.weight)
-        total_shape = torch.prod(torch.tensor(images_out.shape)) #or use numel()
-        w_total_shape = torch.prod(torch.tensor(layer.weight.shape))
-        num_zeros = total_shape - non_zeros
-        w_num_zeros = w_total_shape - w_non_zeros
-        print('Weights: min={}, max={}'.format(torch.min(layer.weight), torch.max(layer.weight)))
-        print('Weights: count zeros: w_total - w_nonzero = {} - {} = {}'.format(
-            w_total_shape, w_non_zeros, w_num_zeros))
-        print('Output: min={}, max={}'.format(torch.min(images_out), torch.max(images_out)))
-        print('Output: count zeros: total - nonzero = {} - {} = {}'.format(total_shape, non_zeros, num_zeros))
-        #feed to next layer
-    elif(type(layer) == nn.Sequential):
-        for j, a_layer in enumerate(layer):
-            if(type(a_layer) == custom_models.BasicBlock):
-                #print('BasicBlock layer: ', a_layer)
-                for k, aa_layer in enumerate(a_layer.children()):
-                    print('input shape: ', images_out.shape)
-                    images_out = aa_layer(images_out)
-                    print('min={}, max={} layer type={}'.format(torch.min(images_out), 
-                        torch.max(images_out), type(aa_layer)))
-                    if(type(aa_layer) == nn.Conv2d):
-                        print('{}.{}.{}- layer: {}'.format(i,j,k, aa_layer))
-                        print('layer weights shape: ', aa_layer.weight.shape)
-                        w_non_zeros = torch.count_nonzero(aa_layer.weight)
-                        w_total_shape = torch.prod(torch.tensor(aa_layer.weight.shape))
-                        w_num_zeros = w_total_shape - w_non_zeros
-                        print('Weights: count zeros. w_total - w_nonzero = {} - {} = {}'.format(
-                                                        w_total_shape, w_non_zeros, w_num_zeros))
-                        non_zeros = torch.count_nonzero(images_out)
-                        total_shape = torch.prod(torch.tensor(images_out.shape))
-                        num_zeros = total_shape - non_zeros
-                        print('layer out shape: ', images_out.shape)
-                        print('Output: count zeros. total - nonzero = {} - {} = {}'.format(
-                            total_shape, non_zeros, num_zeros))
-
-                    else:
-                        print('{}.{}.{}- not conv2d layer type: {}'.format(i,j,k, type(aa_layer)))
-            else:
-                print('{}.{}- not BasicBlock layer type: {}'.format(i,j, type(a_layer)))
-    else:
-        print('layer not conv2d and not sequential, type=', type(layer))
-        print('input shape: ', images_out.shape)
-        images_out = layer(images_out)
-        print('min={}, max={}'.format(torch.min(images_out), 
-            torch.max(images_out)))
-"""
-exit()
 num_zeros = 0
 #TODO: check values of state dict
 #source:
@@ -444,74 +404,20 @@ for i, (name, param) in enumerate(model.named_parameters()):
         print('min={}, max={}, number elements={}'.format(torch.min(images), torch.max(images), total_el))
         print('count zeros: total - nonzero = {} - {} = {}'.format(t_total_shape,
                       t_non_zeros, t_num_zeros))
+#        print(name, '======================================================')
+#        for p in param:
+#            print('p shape: ', p.shape, ' mean: ', torch.mean(p).item(), ' min: ', torch.min(p).item())
+#            for item in torch.flatten(p):
+#                if(torch.isclose(item, torch.tensor(0.0))):
+#                    print("close to zero")
+#                    num_zeros += 1
+#            nonz = torch.count_nonzero(p).item()
+#            numz = p.numel() - nonz
+#            print('num of zeros: ', numz, ' nonzero= ', nonz, ' total: ', p.numel())
+#            if(numz > 1):
+#                raise ValueError("Finally: found zero!!")
 
-#from: https://ravivaishnav20.medium.com/visualizing-feature-maps-using-pytorch-12a48cd1e573
-# we will save the conv layer weights in this list
-model_weights =[]
-#we will save the conv layers in this list
-conv_layers = []
-# get all the model children as list
-model_children = list(model.children())
-print('Number of model children: ', len(model_children))
-#TODO: check named_parameters...
-#counter to keep count of the conv layers
-counter = 0
-#append all the conv layers and their respective wights to the list
-for i in range(len(model_children)):
-    if type(model_children[i]) == nn.Conv2d:
-        counter+=1
-        model_weights.append(model_children[i].weight)
-        conv_layers.append(model_children[i])
-    elif type(model_children[i]) == nn.Sequential:
-        for j in range(len(model_children[i])):
-            for child in model_children[i][j].children():
-                if type(child) == nn.Conv2d:
-                    counter+=1
-                    model_weights.append(child.weight)
-                    conv_layers.append(child)
-print(f"Total convolution layers: {counter}")
-for c in conv_layers:
-    print(c)
-print('num of conv layers: ', len(conv_layers))
-print('num of model weights: ', len(model_weights))
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = model.to(device)
-a_batch_img, _ = next(iter(train_loader))
-print('a batch img shape: ', a_batch_img.shape)
-#a_batch_img = transforms.ToTensor()(a_batch_img)
-print('type={}, min={}, max={}'.format(torch.min(a_batch_img), torch.max(a_batch_img), type(a_batch_img)))
-non_zeros = torch.count_nonzero(a_batch_img)
-total_shape = torch.prod(torch.tensor(a_batch_img.shape)) #or use numel()
-num_zeros = total_shape - non_zeros
-print('count zeros. total - nonzero = {} - {} = {}'.format(total_shape, non_zeros, num_zeros))
-a_batch_img = a_batch_img.to(device)
-#an_img = a_batch_img[0]
-#an_img = an_img.to(device)
-#print('an image shape: ', an_img.shape)
-# Generate feature maps
-outputs = []
-names = []
-for i, layer in enumerate(conv_layers):
-    print(i, '- layer: ', str(layer))
-    images_out = layer(a_batch_img)
-    print('layer weights shape: ', layer.weight.shape)
-    print('layer out shape: ', images_out.shape)
-    non_zeros = torch.count_nonzero(images_out)
-    total_shape = torch.prod(torch.tensor(images_out.shape)) #or use numel()
-    num_zeros = total_shape - non_zeros
-    print('min={}, max={}'.format(torch.min(images_out), torch.max(images_out)))
-    print('count zeros. total - nonzero = {} - {} = {}'.format(total_shape, non_zeros, num_zeros))
-    outputs.append(images_out)
-    names.append(str(layer))
-print('outputs list: ', outputs)
-#print feature_maps
-for feature_map in outputs:
-    print('feature_map.shape: ', feature_map.shape)
-
-
-exit()
-print("The best checkpoint is loaded")
+print("The last checkpoint is loaded")
 logging.info("The last checkpoint is loaded")
 model.eval()
 y_pred = []

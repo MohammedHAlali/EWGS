@@ -9,6 +9,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import numpy as np
 import torch.nn as nn
+import matplotlib.pyplot as plt
 
 from custom_models import *
 from custom_modules import *
@@ -28,12 +29,12 @@ parser = argparse.ArgumentParser(description="PyTorch Implementation of EWGS (CI
 # data and model
 parser.add_argument('--dataset', type=str, default='pcam', help='dataset to use')
 parser.add_argument('--arch', type=str, default='resnet20_quant', help='model architecture')
-parser.add_argument('--num_workers', type=int, default=1, help='number of data loading workers')
+parser.add_argument('--num_workers', type=int, default=6, help='number of data loading workers')
 parser.add_argument('--seed', type=int, default=None, help='seed for initialization')
 
 # training settings
 parser.add_argument('--batch_size', type=int, default=32, help='mini-batch size for training')
-parser.add_argument('--epochs', type=int, default=50, help='number of epochs for training')
+parser.add_argument('--epochs', type=int, default=1, help='number of epochs for training')
 parser.add_argument('--optimizer_m', type=str, default='Adam', choices=('SGD','Adam'), help='optimizer for model paramters')
 parser.add_argument('--optimizer_q', type=str, default='Adam', choices=('SGD','Adam'), help='optimizer for quantizer paramters')
 parser.add_argument('--lr_m', type=float, default=1e-3, help='learning rate for model parameters')
@@ -60,14 +61,21 @@ parser.add_argument('--use_hessian', type=str2bool, default=True, help='update s
 parser.add_argument('--update_every', type=int, default=10, help='update interval in terms of epochs')
 
 # logging and misc
+parser.add_argument('--exp_num', type=int, default=0, help='pick existing exp_num')
 parser.add_argument('--gpu_id', type=str, default='0', help='target GPU to use')
 parser.add_argument('--log_dir', type=str, default='../results/ResNet20_CIFAR10/W1A1/')
 parser.add_argument('--load_pretrain', type=str2bool, default=True, help='load pretrained full-precision model')
 parser.add_argument('--pretrain_path', type=str, default='../results/ResNet20_CIFAR10/fp/checkpoint/last_checkpoint.pth', help='path for pretrained full-preicion model')
 args = parser.parse_args()
 arg_dict = vars(args)
-print('arguments: ', args)
-
+#print('arguments: ', args)
+log_dir = 'out/'
+if(not os.path.exists(os.path.join('out', str(args.exp_num)))):
+    raise ValueError('ERROR: given exp_num={} not exists'.format(args.exp_num))
+else:
+    log_dir = 'out/{}/w{}a{}/'.format(args.exp_num, args.weight_levels, args.act_levels)
+args.log_dir = log_dir
+print('log_dir = ', args.log_dir)
 ### make log directory
 if(not os.path.exists(args.log_dir)):
     os.makedirs(args.log_dir)
@@ -149,10 +157,12 @@ train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                            shuffle=True,
                                            num_workers=args.num_workers,
                                            worker_init_fn=None if args.seed is None else _init_fn)
-test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
+val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
                                           batch_size=100,
                                           shuffle=False,
                                           num_workers=args.num_workers)
+test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
+        batch_size=1,shuffle=False)
 
 ### initialize model
 model_class = globals().get(args.arch)
@@ -162,8 +172,9 @@ model.to(device)
 num_total_params = sum(p.numel() for p in model.parameters())
 print("The number of parameters : ", num_total_params)
 logging.info("The number of parameters : {}".format(num_total_params))
-
+args.pretrain_path = os.path.join('out/{}'.format(args.exp_num), 'checkpoint/best_checkpoint.pth')
 if args.load_pretrain:
+    print('loading pretrained model from: ', args.pretrain_path)
     trained_model = torch.load(args.pretrain_path)
     current_dict = model.state_dict()
     print("Pretrained full precision weights are initialized")
@@ -250,24 +261,43 @@ writer = SummaryWriter(args.log_dir)
 ### train
 total_iter = 0
 best_acc = 0
+best_epoch = 0
+iter_print = 0
+train_loss_list = []
+val_loss_list = []
+if('pcam' in args.dataset):
+    iter_print = 1000
+else:
+    iter_print = 20
 for ep in range(args.epochs):
+    print('============== Epoch [{}/{}] ================='.format(ep, args.epochs))
     model.train()
     ### update grad scales
+    #TODO: causes memory error
     if ep % args.update_every == 0 and ep != 0 and not args.baseline and args.use_hessian:
         update_grad_scales(model, train_loader, criterion, device, args)
     ###
     writer.add_scalar('train/model_lr', optimizer_m.param_groups[0]['lr'], ep)
     writer.add_scalar('train/quant_lr', optimizer_q.param_groups[0]['lr'], ep)
+    train_epoch_loss_list = []
     for i, (images, labels) in enumerate(train_loader):
         images = images.to(device)
         labels = labels.to(device)
-        
+        if(i == 0):
+            t_non_zeros = torch.count_nonzero(images)
+            t_total_shape = torch.prod(torch.tensor(images.shape))
+            t_num_zeros = t_total_shape - t_non_zeros
+            print('torch images shape: {}, type={}, min={}, max={}'.format(images.shape, images.dtype, torch.min(images), torch.max(images)))
+            print('count zeros torch: total - nonzero = {} - {} = {}'.format(t_total_shape, 
+                            t_non_zeros, t_num_zeros))
         optimizer_m.zero_grad()
         optimizer_q.zero_grad()
             
         pred = model(images)
         loss_t = criterion(pred, labels)
-        
+        if(i % iter_print == 0):
+            print(i, '- batch shape: ', images.shape, ' loss: ', loss_t.item())
+        train_epoch_loss_list.append(loss_t.item())
         loss = loss_t
         loss.backward()
         
@@ -278,36 +308,44 @@ for ep in range(args.epochs):
     
     scheduler_m.step()
     scheduler_q.step()
+    train_epoch_loss = np.mean(train_epoch_loss_list)
+    train_loss_list.append(train_epoch_loss)
+    print('epoch train loss: ', train_epoch_loss)
 
     with torch.no_grad():
-        model.eval()
-        correct_classified = 0
-        total = 0
-        for i, (images, labels) in enumerate(train_loader):
-            images = images.to(device)
-            labels = labels.to(device)
-            pred = model(images)
-            _, predicted = torch.max(pred.data, 1)
-            total += pred.size(0)
-            correct_classified += (predicted == labels).sum().item()
-        test_acc = correct_classified/total*100
-        writer.add_scalar('train/acc', test_acc, ep)
+        #model.eval()
+        #correct_classified = 0
+        #total = 0
+        #for i, (images, labels) in enumerate(train_loader):
+        #    images = images.to(device)
+        #    labels = labels.to(device)
+        #    pred = model(images)
+        #    _, predicted = torch.max(pred.data, 1)
+        #    total += pred.size(0)
+        #    correct_classified += (predicted == labels).sum().item()
+        #test_acc = correct_classified/total*100
+        #writer.add_scalar('train/acc', test_acc, ep)
 
         model.eval()
         correct_classified = 0
         total = 0
-        for i, (images, labels) in enumerate(test_loader):
+        val_epoch_loss_list = []
+        for j, (images, labels) in enumerate(val_loader):
             images = images.to(device)
             labels = labels.to(device)
             pred = model(images)
+            val_loss = criterion(pred, labels)
+            val_epoch_loss_list.append(val_loss.item())
             _, predicted = torch.max(pred.data, 1)
             total += pred.size(0)
             correct_classified += (predicted == labels).sum().item()
-        test_acc = correct_classified/total*100
-        print("Current epoch: {:03d}".format(ep), "\t Test accuracy:", test_acc, "%")
-        logging.info("Current epoch: {:03d}\t Test accuracy: {}%".format(ep, test_acc))
-        writer.add_scalar('test/acc', test_acc, ep)
-
+        val_acc = correct_classified/total*100
+        print("Current epoch: {:03d}".format(ep), "\t validation accuracy:", val_acc, "%")
+        logging.info("Current epoch: {:03d}\t validation accuracy: {}%".format(ep, val_acc))
+        writer.add_scalar('val/acc', val_acc, ep)
+        val_epoch_loss = np.mean(val_epoch_loss_list)
+        print('val loss: ', val_epoch_loss)
+        val_loss_list.append(val_epoch_loss)
         torch.save({
             'epoch':ep,
             'model':model.state_dict(),
@@ -317,8 +355,9 @@ for ep in range(args.epochs):
             'scheduler_q':scheduler_q.state_dict(),
             'criterion':criterion.state_dict()
         }, os.path.join(args.log_dir,'checkpoint/last_checkpoint.pth'))
-        if test_acc > best_acc:
-            best_acc = test_acc
+        if val_acc > best_acc:
+            best_acc = val_acc
+            best_epoch = ep
             torch.save({
                 'epoch':ep,
                 'model':model.state_dict(),
@@ -351,11 +390,30 @@ for ep in range(args.epochs):
                 logging.info("output_scale: {}".format(m.output_scale))
             logging.info('\n')
 
-### Test accuracy @ last checkpoint
-trained_model = torch.load(os.path.join(args.log_dir,'checkpoint/last_checkpoint.pth'))
+print('best epoch: ', best_epoch)
+print('train losses: ', train_loss_list)
+print('validation losses: ', val_loss_list)
+#PLOT train val loss curve
+plt.figure()
+plt.plot(train_loss_list, 'g--', label='training loss')
+plt.plot(val_loss_list, '-', label='validation loss')
+plt.title('Training and Validation Loss, {}'.format(args.dataset))
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.legend(loc='upper left')
+fig_path = '{}/exp_{}_train_valid_loss.png'.format(args.log_dir, args.dataset)
+plt.savefig(fig_path, dpi=300)
+plt.close()
+print('train valid loss curve figure saved in path: ', fig_path)
+
+### Test accuracy @ best checkpoint
+trained_model = torch.load(os.path.join(args.log_dir,'checkpoint/best_checkpoint.pth'))
 model.load_state_dict(trained_model['model'])
-print("The last checkpoint is loaded")
-logging.info("The last checkpoint is loaded")
+print("The best checkpoint is loaded")
+logging.info("The best checkpoint is loaded")
+
+y_true = []
+y_pred = []
 model.eval()
 with torch.no_grad():
     correct_classified = 0
@@ -363,11 +421,17 @@ with torch.no_grad():
     for i, (images, labels) in enumerate(test_loader):
         images = images.to(device)
         labels = labels.to(device)
-
+        y_true.append(labels.item())
         pred = model(images)
         _, predicted = torch.max(pred.data, 1)
+        y_pred.append(predicted.item())
         total += pred.size(0)
         correct_classified += (predicted == labels).sum().item()
     test_acc = correct_classified/total*100
     print("Test accuracy: {}%".format(test_acc))
     logging.info("Test accuracy: {}%".format(test_acc))
+
+from sklearn.metrics import classification_report as class_rep
+print(class_rep(y_pred=y_pred, y_true=y_true))
+
+print('out dir', args.log_dir, ' dataset: ', args.dataset)
