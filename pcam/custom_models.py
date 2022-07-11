@@ -123,7 +123,7 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.bn2(out)
         out = self.linear(out)
-        return out, self.conv1, [self.layer1, self.layer2, self.layer3], self.linear
+        return out, self.conv1, [self.layer1, self.layer2, self.layer3], [self.bn2, self.linear]
 
 def resnet20_fp(args):
     return ResNet(BasicBlock, [3, 3, 3], args)

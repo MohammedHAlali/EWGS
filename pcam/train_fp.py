@@ -256,26 +256,113 @@ for ep in range(args.epochs):
         output = model(images)
         pred = output[0]
         if(i == 0):
+            print('================= Num of Zero Calculations ===================')
             t_non_zeros = torch.count_nonzero(images)
             t_total_shape = torch.prod(torch.tensor(images.shape))
             t_num_zeros = t_total_shape - t_non_zeros
-            print('torch images shape: {}, type={}, min={}, max={}'.format(images.shape, images.dtype, torch.min(images), torch.max(images)))
-            print('count zeros torch: total - nonzero = {} - {} = {}'.format(t_total_shape, 
+            print('input images shape: {}, type={}, min={}, max={}'.format(images.shape, images.dtype, torch.min(images), torch.max(images)))
+            print('input count zeros torch: total - nonzero = {} - {} = {}'.format(t_total_shape, 
                 t_non_zeros, t_num_zeros))
-        if(type(output[1]) == nn.Conv2d):
-            w = output[1].weight
-            print('first conv2d: {}, weight shape={}'.format(output[1], w.shape))
-            layer_out = output[1](images)
-            w_non_zero = torch.count_nonzero(w)
-            w_total_shape = torch.prod(torch.tensor(w.shape))
-            w_num_zero = w_total_shape - w_non_zero
-            print('weights num zero: total - nonzero = {}-{}={} '.format(w_total_shape, w_non_zero, w_num_zero))
-            l_out = layer_out
-            print('layer out shape: ', l_out.shape)
-            l_non_zero = torch.count_nonzero(l_out)
-            l_total_shape = torch.prod(torch.tensor(l_out.shape))
-            l_num_zero = l_total_shape - l_non_zero
-            print('layer out num zero: total - nonzero = {}-{}={} '.format(l_total_shape, l_non_zero, l_num_zero))
+            if(type(output[1]) == nn.Conv2d):
+                w = output[1].weight
+                print('first conv2d: {}, weight shape={}'.format(output[1], w.shape))
+                layer_out = output[1](images)
+                w_non_zero = torch.count_nonzero(w)
+                w_total_shape = torch.prod(torch.tensor(w.shape))
+                w_num_zero = w_total_shape - w_non_zero
+                print('weights num zero: total - nonzero = {}-{}={} '.format(w_total_shape, w_non_zero, w_num_zero))
+                l_out = layer_out
+                print('layer out shape: ', l_out.shape)
+                l_non_zero = torch.count_nonzero(l_out)
+                l_total_shape = torch.prod(torch.tensor(l_out.shape))
+                l_num_zero = l_total_shape - l_non_zero
+                print('layer out num zero: total - nonzero = {}-{}={} '.format(l_total_shape, l_non_zero, l_num_zero))
+            print('===== processing middle layers ======')
+            seq_layer_input = None
+            for m, layer in enumerate(output[2]):
+                #if(m == 0):
+                seq_layer_input = layer_out
+                print('seq#{} input shape: {}'.format(m, seq_layer_input.shape))
+                layer_out = layer(seq_layer_input)
+                #else:
+                #    print('seq#{} input shape: {}'.format(m, layer_out.shape))
+                #    layer_out = layer(layer_out)
+                print('seq#{} type: {}'.format(m,type(layer)))
+                #print('layer = ', layer)
+                print('seq#{} output shape: {}'.format(m, layer_out.shape))
+                block_layer_out = None
+                for ii, block_layer in enumerate(layer):
+                    print('== basic block#{} type: {}'.format(ii, type(block_layer)))
+                    if(ii == 0):
+                        #bring block input, feed it to first layer in the block
+                        block_layer_in = seq_layer_input
+                        print('== basic block#{} input shape: {}'.format(ii, block_layer_in.shape))
+                        layer_out = block_layer(block_layer_in)
+                        print('== basic block#{} output shape: {}'.format(ii, layer_out.shape))
+                        block_layer_out = layer_out
+                    elif(ii == len(layer)-1):
+                        print('== last basic block#', ii)
+                        block_layer_in = layer_out
+                        print('== basic block#{} input shape: {}'.format(ii, layer_out.shape))
+                        block_layer_out = block_layer(layer_out)
+                        print('== basic block#{} output shape: {}'.format(ii, block_layer_out.shape))
+                    else:
+                        #print('== TODO: take layer_in from block_layer_out, DONE')
+                        layer_out = block_layer_out
+                        block_layer_in = layer_out
+                        print('== basic block#{} input shape: {}'.format(ii, layer_out.shape))
+                        layer_out = block_layer(layer_out)
+                        print('== basic block#{} output shape: {}'.format(ii, layer_out.shape))
+                    #print('==: ', inner_layer)
+                    for iii, innest_layer in enumerate(block_layer.children()):
+                        print('==== innest layer#{}, = {}'.format(iii, innest_layer))
+                        if(iii == 0):
+                            innest_layer_in = block_layer_in
+                            print('==== innest layer#{} input shape: {}'.format(iii, innest_layer_in.shape))
+                            layer_out = innest_layer(innest_layer_in)
+                            print('==== innest layer#{} output shape: {}'.format(iii, layer_out.shape))
+
+                        else:
+                            print('==== innest layer#{} input shape: {}'.format(iii, layer_out.shape))
+                            layer_out = innest_layer(layer_out)
+                            print('==== innest layer#{} output shape: {}'.format(iii, layer_out.shape))
+
+                        if(type(innest_layer) == nn.Conv2d):
+                            print('==== find zeros in ifmap')
+                            print('==== ifmap shape: ', layer_out.shape)
+                            i_non_zero = torch.count_nonzero(layer_out)
+                            i_total_shape = torch.prod(torch.tensor(layer_out.shape))
+                            i_num_zero = i_total_shape - i_non_zero
+                            print('==== ifmap num zero: total - nonzero = {}-{}={} '.format(
+                                                                i_total_shape, i_non_zero, i_num_zero))
+                            print('==== find zeros in filter fmap')
+                            print('==== weights shape: ', w.shape)
+                            w = innest_layer.weight
+                            w_non_zero = torch.count_nonzero(w)
+                            w_total_shape = torch.prod(torch.tensor(w.shape))
+                            w_num_zero = w_total_shape - w_non_zero
+                            print('==== filter num zero: total - nonzero = {}-{}={} '.format(
+                                w_total_shape, w_non_zero, w_num_zero))
+                            print('==== find zeros in ofmap: TODO')
+                        else:
+                            print('==== layer not conv2d')
+            if(len(output[3]) == 2):
+                for layer in output[3]:
+                    layer_out = block_layer_out
+                    print('last layer: ', layer)
+                    print('input shape: ', layer_out.shape)
+                    layer_out = layer_out.view(layer_out.size(0), -1)
+                    print('2D input shape: ', layer_out.shape)
+                    layer_out = layer(layer_out)
+                    print('layer out shape: ', layer_out.shape)
+                #TODO: get layer before Linear
+                #print('working on last linear layer, =', output[3])
+                #w = output[3].weight
+                #print('layer weight shape: ', w.shape)
+                #print('input shape: ', layer_out.shape)
+                #layer_out = output[3](layer_out)
+                #print('linear out shape: ', layer_out.shape)
+        exit()
         loss_t = criterion(pred, labels)
         if(i % iter_print == 0):
             print(i, '- batch shape: ', images.shape, ' loss: ', loss_t.item()) 
