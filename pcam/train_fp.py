@@ -230,7 +230,7 @@ for ep in range(args.epochs):
         optimizer_m.zero_grad()
         output = model(images)
         pred = output[0]
-        if(i == 0):
+        if(ep == args.epochs-1):
             print('================= Num of Zero Calculations ===================')
             t_non_zeros = torch.count_nonzero(images)
             t_total_shape = torch.prod(torch.tensor(images.shape))
@@ -246,26 +246,32 @@ for ep in range(args.epochs):
                 w_non_zero = torch.count_nonzero(w)
                 w_total_shape = torch.prod(torch.tensor(w.shape))
                 w_num_zero = w_total_shape - w_non_zero
-                print('weights num zero: total - nonzero = {}-{}={} '.format(w_total_shape, w_non_zero, w_num_zero))
+                w_mean = torch.mean(w).item()
+                w_min = torch.min(w).item()
+                print('weights num zero: total - nonzero = {}-{}={}, mean={:.2f}, min={}'.format(
+                    w_total_shape, w_non_zero, w_num_zero, w_mean, w_min))
                 l_out = layer_out
-                print('layer out shape: ', l_out.shape)
+                #print('layer out shape: ', l_out.shape)
                 l_non_zero = torch.count_nonzero(l_out)
                 l_total_shape = torch.prod(torch.tensor(l_out.shape))
                 l_num_zero = l_total_shape - l_non_zero
-                print('layer out num zero: total - nonzero = {}-{}={} '.format(l_total_shape, l_non_zero, l_num_zero))
+                l_mean = torch.mean(l_out).item()
+                l_min = torch.min(l_out).item()
+                print('layer out num zero: total - nonzero = {}-{}={}, mean={:.2f}, min={}'.format(
+                    l_total_shape, l_non_zero, l_num_zero, l_mean, l_min))
             print('===== processing middle layers ======')
             seq_layer_input = None
             for m, layer in enumerate(output[2]):
                 #if(m == 0):
                 seq_layer_input = layer_out
-                print('seq#{} input shape: {}'.format(m, seq_layer_input.shape))
+                #print('seq#{} input shape: {}'.format(m, seq_layer_input.shape))
                 layer_out = layer(seq_layer_input)
                 #else:
                 #    print('seq#{} input shape: {}'.format(m, layer_out.shape))
                 #    layer_out = layer(layer_out)
-                print('seq#{} type: {}'.format(m,type(layer)))
+                #print('seq#{} type: {}'.format(m,type(layer)))
                 #print('layer = ', layer)
-                print('seq#{} output shape: {}'.format(m, layer_out.shape))
+                #print('seq#{} output shape: {}'.format(m, layer_out.shape))
                 block_layer_out = None
                 for ii, block_layer in enumerate(layer):
                     print('== basic block#{} type: {}'.format(ii, type(block_layer)))
@@ -301,28 +307,34 @@ for ep in range(args.epochs):
                         #print('==== innest layer#{} input shape: {}'.format(iii, innest_layer_in.shape))
                         if(type(innest_layer) == nn.Conv2d):
                             print('==== innest layer#{}, = {}'.format(iii, innest_layer))
-                            print('==== find zeros in ifmap')
-                            print('==== ifmap shape: ', innest_layer_in.shape)
-                            i_non_zero = torch.count_nonzero(layer_in)
-                            i_total_shape = torch.prod(torch.tensor(layer_in.shape))
+                            #print('==== find zeros in ifmap')
+                            #print('==== ifmap shape: ', innest_layer_in.shape)
+                            i_non_zero = torch.count_nonzero(innest_layer_in)
+                            i_total_shape = torch.prod(torch.tensor(innest_layer_in.shape))
                             i_num_zero = i_total_shape - i_non_zero
-                            print('==== ifmap num zero: total - nonzero = {}-{}={} '.format(
-                                i_total_shape, i_non_zero, i_num_zero)
-                            print('==== find zeros in filter fmap')
-                            print('==== weights shape: ', w.shape)
+                            i_mean = torch.mean(innest_layer_in).item()
+                            i_min = torch.min(innest_layer_in).item()
+                            print('==== ifmap num zero: total - nonzero = {}-{}={}, mean={:.2f}, min={}'.format(
+                                i_total_shape, i_non_zero, i_num_zero, i_mean, i_min))
+                            #print('==== find zeros in filter fmap')
+                            #print('==== weights shape: ', w.shape)
                             w = innest_layer.weight
                             w_non_zero = torch.count_nonzero(w)
                             w_total_shape = torch.prod(torch.tensor(w.shape))
                             w_num_zero = w_total_shape - w_non_zero
-                            print('==== filter num zero: total - nonzero = {}-{}={} '.format(
-                                    w_total_shape, w_non_zero, w_num_zero))
+                            w_mean = torch.mean(w).item()
+                            w_min = torch.min(w).item()
+                            print('==== filter num zero: total - nonzero = {}-{}={}, mean={:.2f}, min={}'.format(
+                                w_total_shape, w_non_zero, w_num_zero, w_mean, w_min))
                             layer_out = innest_layer(innest_layer_in)
-                            print('==== innest layer#{} output shape: {}'.format(iii, layer_out.shape))
+                            #print('==== innest layer#{} output shape: {}'.format(iii, layer_out.shape))
                             o_non_zero = torch.count_nonzero(layer_out)
                             o_total_shape = torch.prod(torch.tensor(layer_out.shape))
                             o_num_zero = o_total_shape - o_non_zero
-                            print('==== filter num zero: total - nonzero = {}-{}={} '.format(
-                                        w_total_shape, w_non_zero, w_num_zero))
+                            o_mean = torch.mean(layer_out).item()
+                            o_min = torch.min(layer_out).item()
+                            print('==== ofmap num zero: total - nonzero = {}-{}={}, mean={:.2f}, min={}'.format(
+                                o_total_shape, o_non_zero, o_num_zero, o_mean, o_min))
                         else:
                             layer_out = innest_layer(innest_layer_in)
             # Analyze last two layers in the model            
@@ -331,28 +343,47 @@ for ep in range(args.epochs):
                 out = block_layer_out
                 # get layer before Linear [DONE]
                 print('n-1 layer: ', layers[0])
-                print('input shape: ', out.shape)
+                #print('input shape: ', out.shape)
                 out = F.avg_pool2d(out, out.size()[3])
-                print('avg pool output shape: ', out.shape)
+                #print('avg pool output shape: ', out.shape)
                 out = out.view(out.size(0), -1)
-                print('2D input shape: ', out.shape)
+                #print('2D input shape: ', out.shape)
                 out = layers[0](out)
-                print('out shape: ', out.shape)
+                #print('out shape: ', out.shape)
                 print('working on last linear layer, =', layers[1])
+                print('input shape: ', out.shape)
+                i_non_zero = torch.count_nonzero(out)
+                i_total_shape = torch.prod(torch.tensor(out.shape))
+                i_num_zero = i_total_shape - i_non_zero
+                i_mean = torch.mean(out).item()
+                i_min = torch.min(out).item()
+                print('==== ifmap num zero: total - nonzero = {}-{}={}, mean={:.2f}, min={}'.format(
+                    i_total_shape, i_non_zero, i_num_zero, i_mean, i_min))
                 w = layers[1].weight
                 print('layer weight shape: ', w.shape)
-                print('input shape: ', out.shape)
+                w_non_zero = torch.count_nonzero(w)
+                w_total_shape = torch.prod(torch.tensor(w.shape))
+                w_num_zero = w_total_shape - w_non_zero
+                w_mean = torch.mean(w).item()
+                w_min = torch.min(w).item()
+                print('==== filters num zero: total - nonzero = {}-{}={}, mean={:.2f}, min={}'.format(
+                    w_total_shape, w_non_zero, w_num_zero, w_mean, w_min))
+                print('output shape: ', out.shape)
                 out = layers[1](out)
                 print('linear out shape: ', out.shape)
-                print('TODO: find num of zeros')
-        exit()
+                o_non_zero = torch.count_nonzero(out)
+                o_total_shape = torch.prod(torch.tensor(out.shape))
+                o_num_zero = o_total_shape - o_non_zero
+                o_mean = torch.mean(out).item()
+                o_min = torch.min(out).item()
+                print('==== ofmap num zero: total - nonzero = {}-{}={}, mean={:.2f}, min={}'.format(
+                    o_total_shape, o_non_zero, o_num_zero, o_mean, o_min))
         loss_t = criterion(pred, labels)
         if(i % iter_print == 0):
             print(i, '- batch shape: ', images.shape, ' loss: ', loss_t.item()) 
         train_epoch_loss_list.append(loss_t.item())
         loss = loss_t
         loss.backward()
-        
         optimizer_m.step()
         writer.add_scalar('train/loss', loss.item(), total_iter)
         total_iter += 1
@@ -361,7 +392,6 @@ for ep in range(args.epochs):
     scheduler_m.step()
 
     with torch.no_grad():
-
         model.eval()
         correct_classified = 0
         total = 0
@@ -370,7 +400,8 @@ for ep in range(args.epochs):
         for j, (images, labels) in enumerate(val_loader):
             images = images.to(device)
             labels = labels.to(device)
-            pred = model(images)
+            output = model(images)
+            pred = output[0]
             val_loss = criterion(pred, labels)
             val_epoch_loss_list.append(val_loss.item())
             _, predicted = torch.max(pred.data, 1)
@@ -402,7 +433,6 @@ for ep in range(args.epochs):
                 'criterion':criterion.state_dict()
             }, os.path.join(log_dir,'checkpoint/best_checkpoint.pth'))  
     
-
 print('best epoch: ', best_epoch)
 #PLOT train val loss curve
 plt.figure()
