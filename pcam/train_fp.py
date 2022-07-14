@@ -8,6 +8,7 @@ from time import time
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
@@ -99,32 +100,6 @@ def _init_fn(worker_id):
     return
 
 ### train/test datasets
-if(args.dataset == 'mhist'):
-    mean = [0.7378, 0.6486, 0.7752]
-    std = [0.1879, 0.2293, 0.1628]
-elif(args.dataset == 'mhist_gs'):
-    mean = [0.6898, 0.6898, 0.6898] 
-    std = [0.2081, 0.2081, 0.2081]
-elif(args.dataset == 'mhist_gs_sp'):
-    mean = [0.3234, 0.3234, 0.3234] 
-    std = [0.2762, 0.2762, 0.2762]
-elif(args.dataset == 'mhist_rgb_sp'):
-    mean = [0.3944, 0.3124, 0.4292] 
-    std = [0.3092, 0.2591, 0.3272]
-elif(args.dataset == 'pcam_rgb224'):
-    mean = [0.7008, 0.5384, 0.6916]
-    std = [0.1818, 0.2008, 0.1648]
-elif(args.dataset == 'pcam_gs224'):
-    mean = [0.6044, 0.6044, 0.6044]
-    std = [0.1799, 0.1799, 0.1799]
-elif(args.dataset == 'pcam_gs224_sp200'):
-    mean = [0.3386, 0.3386, 0.3386]
-    std = [0.2281, 0.2281, 0.2281]
-elif(args.dataset == 'pcam_rgb224_sp200'):
-    mean = [0.4674, 0.3160, 0.4622]
-    std = [0.2650, 0.2166, 0.2382]
-else:
-    raise ValueError('ERROR: dataset name not found: ', args.dataset)
 
 transform_train = transforms.Compose([
              transforms.RandomHorizontalFlip(),
@@ -263,6 +238,7 @@ for ep in range(args.epochs):
             print('input images shape: {}, type={}, min={}, max={}'.format(images.shape, images.dtype, torch.min(images), torch.max(images)))
             print('input count zeros torch: total - nonzero = {} - {} = {}'.format(t_total_shape, 
                 t_non_zeros, t_num_zeros))
+            #Analyze first layer in the model
             if(type(output[1]) == nn.Conv2d):
                 w = output[1].weight
                 print('first conv2d: {}, weight shape={}'.format(output[1], w.shape))
@@ -315,26 +291,23 @@ for ep in range(args.epochs):
                         print('== basic block#{} output shape: {}'.format(ii, layer_out.shape))
                     #print('==: ', inner_layer)
                     for iii, innest_layer in enumerate(block_layer.children()):
-                        print('==== innest layer#{}, = {}'.format(iii, innest_layer))
                         if(iii == 0):
+                            # take input from the block input layer => feeding from outside
                             innest_layer_in = block_layer_in
-                            print('==== innest layer#{} input shape: {}'.format(iii, innest_layer_in.shape))
-                            layer_out = innest_layer(innest_layer_in)
-                            print('==== innest layer#{} output shape: {}'.format(iii, layer_out.shape))
-
                         else:
-                            print('==== innest layer#{} input shape: {}'.format(iii, layer_out.shape))
-                            layer_out = innest_layer(layer_out)
-                            print('==== innest layer#{} output shape: {}'.format(iii, layer_out.shape))
+                            # take input from previous layer in the block => feeding from inside
+                            innest_layer_in = layer_out
 
+                        #print('==== innest layer#{} input shape: {}'.format(iii, innest_layer_in.shape))
                         if(type(innest_layer) == nn.Conv2d):
+                            print('==== innest layer#{}, = {}'.format(iii, innest_layer))
                             print('==== find zeros in ifmap')
-                            print('==== ifmap shape: ', layer_out.shape)
-                            i_non_zero = torch.count_nonzero(layer_out)
-                            i_total_shape = torch.prod(torch.tensor(layer_out.shape))
+                            print('==== ifmap shape: ', innest_layer_in.shape)
+                            i_non_zero = torch.count_nonzero(layer_in)
+                            i_total_shape = torch.prod(torch.tensor(layer_in.shape))
                             i_num_zero = i_total_shape - i_non_zero
                             print('==== ifmap num zero: total - nonzero = {}-{}={} '.format(
-                                                                i_total_shape, i_non_zero, i_num_zero))
+                                i_total_shape, i_non_zero, i_num_zero)
                             print('==== find zeros in filter fmap')
                             print('==== weights shape: ', w.shape)
                             w = innest_layer.weight
@@ -342,26 +315,36 @@ for ep in range(args.epochs):
                             w_total_shape = torch.prod(torch.tensor(w.shape))
                             w_num_zero = w_total_shape - w_non_zero
                             print('==== filter num zero: total - nonzero = {}-{}={} '.format(
-                                w_total_shape, w_non_zero, w_num_zero))
-                            print('==== find zeros in ofmap: TODO')
+                                    w_total_shape, w_non_zero, w_num_zero))
+                            layer_out = innest_layer(innest_layer_in)
+                            print('==== innest layer#{} output shape: {}'.format(iii, layer_out.shape))
+                            o_non_zero = torch.count_nonzero(layer_out)
+                            o_total_shape = torch.prod(torch.tensor(layer_out.shape))
+                            o_num_zero = o_total_shape - o_non_zero
+                            print('==== filter num zero: total - nonzero = {}-{}={} '.format(
+                                        w_total_shape, w_non_zero, w_num_zero))
                         else:
-                            print('==== layer not conv2d')
+                            layer_out = innest_layer(innest_layer_in)
+            # Analyze last two layers in the model            
             if(len(output[3]) == 2):
-                for layer in output[3]:
-                    layer_out = block_layer_out
-                    print('last layer: ', layer)
-                    print('input shape: ', layer_out.shape)
-                    layer_out = layer_out.view(layer_out.size(0), -1)
-                    print('2D input shape: ', layer_out.shape)
-                    layer_out = layer(layer_out)
-                    print('layer out shape: ', layer_out.shape)
-                #TODO: get layer before Linear
-                #print('working on last linear layer, =', output[3])
-                #w = output[3].weight
-                #print('layer weight shape: ', w.shape)
-                #print('input shape: ', layer_out.shape)
-                #layer_out = output[3](layer_out)
-                #print('linear out shape: ', layer_out.shape)
+                layers = output[3]
+                out = block_layer_out
+                # get layer before Linear [DONE]
+                print('n-1 layer: ', layers[0])
+                print('input shape: ', out.shape)
+                out = F.avg_pool2d(out, out.size()[3])
+                print('avg pool output shape: ', out.shape)
+                out = out.view(out.size(0), -1)
+                print('2D input shape: ', out.shape)
+                out = layers[0](out)
+                print('out shape: ', out.shape)
+                print('working on last linear layer, =', layers[1])
+                w = layers[1].weight
+                print('layer weight shape: ', w.shape)
+                print('input shape: ', out.shape)
+                out = layers[1](out)
+                print('linear out shape: ', out.shape)
+                print('TODO: find num of zeros')
         exit()
         loss_t = criterion(pred, labels)
         if(i % iter_print == 0):
