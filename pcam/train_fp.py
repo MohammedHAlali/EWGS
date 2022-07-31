@@ -39,21 +39,21 @@ os.mkdir(out_dir)
 
 parser = argparse.ArgumentParser(description="PyTorch Implementation of EWGS (PCam)")
 # data and model
-parser.add_argument('--dataset', type=str, default='pcam_rgb224', choices=('pcam_rgb224','pcam_gs224', 'pcam_rgb224_sp200', 'pcam_gs224_sp200', 'mhist','mhist_gs', 'mhist_rgb_sp', 'mhist_gs_sp'), help='dataset to use variations of PCam')
+parser.add_argument('--dataset', type=str, default='pcam_rgb', help='dataset to use variations of PCam')
 parser.add_argument('--arch', type=str, default='resnet20_fp', help='model architecture')
-parser.add_argument('--num_workers', type=int, default=1, help='number of data loading workers')
+parser.add_argument('--num_workers', type=int, default=4, help='number of data loading workers')
 parser.add_argument('--seed', type=int, default=None, help='seed for initialization')
 
 # training settings
 parser.add_argument('--batch_size', type=int, default=32, help='mini-batch size for training')
 parser.add_argument('--epochs', type=int, default=100, help='number of epochs for training')
-parser.add_argument('--optimizer_m', type=str, default='SGD', choices=('SGD','Adam'), help='optimizer for model paramters')
-parser.add_argument('--lr_m', type=float, default=1e-1, help='learning rate for model parameters')
+parser.add_argument('--optimizer_m', type=str, default='Adam', choices=('SGD','Adam'), help='optimizer for model paramters')
+parser.add_argument('--lr_m', type=float, default=1e-3, help='learning rate for model parameters')
 parser.add_argument('--lr_m_end', type=float, default=0.0, help='final learning rate for model parameters (for cosine)')
 parser.add_argument('--decay_schedule_m', type=str, default='150-300', help='learning rate decaying schedule (for step)')
 parser.add_argument('--momentum', type=float, default=0.9, help='momentum for SGD')
 parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight decay for model parameters')
-parser.add_argument('--lr_scheduler_m', type=str, default='cosine', choices=('step','cosine'), help='type of the scheduler')
+parser.add_argument('--lr_scheduler_m', type=str, default='step', help='type of the scheduler')
 parser.add_argument('--gamma', type=float, default=0.1, help='decaying factor (for step)')
 
 # logging and misc
@@ -150,7 +150,6 @@ test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
 #end_time = time()
 #print('Simulated training \nfinished with {} seconds, num_workers={}'.format(end_time-start_time, 
 #    args.num_workers))
-#exit()
 #print('train loader: ', list(train_loader))
 #print('test loader: ', list(test_loader))
 ### initialize model
@@ -158,7 +157,7 @@ model_class = globals().get(args.arch)
 #print('model class: ', model_class)
 model = model_class(args)
 model.to(device)
-print('model arch: \n', model)
+#print('model arch: \n', model)
 #i = 1
 #for name, layer in model.named_modules():
 #    if(isinstance(layer, nn.Conv2d)):
@@ -193,15 +192,21 @@ elif args.optimizer_m == 'Adam':
     
 # scheduler for model params
 if args.lr_scheduler_m == "step":
-    if args.decay_schedule_m is not None:
-        milestones_m = list(map(lambda x: int(x), args.decay_schedule_m.split('-')))
-    else:
-        milestones_m = [args.epochs+1]
-    scheduler_m = torch.optim.lr_scheduler.MultiStepLR(optimizer_m, milestones=milestones_m, 
-            gamma=args.gamma, verbose=True)
+    #if args.decay_schedule_m is not None:
+    #    milestones_m = list(map(lambda x: int(x), args.decay_schedule_m.split('-')))
+    #else:
+        #milestones_m = [args.epochs+1]
+    milestones_m = args.epochs//5
+    #scheduler_m = torch.optim.lr_scheduler.MultiStepLR(optimizer_m, milestones=milestones_m, 
+    #        gamma=args.gamma, verbose=True)
+    scheduler_m = torch.optim.lr_scheduler.StepLR(optimizer_m, step_size=milestones_m,
+                        gamma=args.gamma, verbose=True)
+
 elif args.lr_scheduler_m == "cosine":
     scheduler_m = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_m, T_max=args.epochs, 
             eta_min=args.lr_m_end, verbose=True)
+#elif args.lr_scheduler_m == "reduce"
+#scheduler_reduce = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer_m, verbose=True)
 
 criterion = nn.CrossEntropyLoss()
 
@@ -217,7 +222,7 @@ val_loss_list = []
 if('pcam' in args.dataset):
     iter_print = 1000
 else:
-    iter_print = 10
+    iter_print = 20
 for ep in range(args.epochs):
     print('========= Epoch: [{}/{}] ========='.format(ep, args.epochs))
     model.train()
@@ -230,7 +235,8 @@ for ep in range(args.epochs):
         optimizer_m.zero_grad()
         output = model(images)
         pred = output[0]
-        if(ep == args.epochs-1):
+        '''
+        if(ep == args.epochs-1 and i == 0):
             print('================= Num of Zero Calculations ===================')
             t_non_zeros = torch.count_nonzero(images)
             t_total_shape = torch.prod(torch.tensor(images.shape))
@@ -378,6 +384,7 @@ for ep in range(args.epochs):
                 o_min = torch.min(out).item()
                 print('==== ofmap num zero: total - nonzero = {}-{}={}, mean={:.2f}, min={}'.format(
                     o_total_shape, o_non_zero, o_num_zero, o_mean, o_min))
+        '''
         loss_t = criterion(pred, labels)
         if(i % iter_print == 0):
             print(i, '- batch shape: ', images.shape, ' loss: ', loss_t.item()) 
@@ -390,6 +397,7 @@ for ep in range(args.epochs):
     train_loss_list.append(np.mean(train_epoch_loss_list))
     print('epoch train loss: ', np.mean(train_epoch_loss_list))
     scheduler_m.step()
+    #added another scheduler to after validation
 
     with torch.no_grad():
         model.eval()
@@ -407,14 +415,17 @@ for ep in range(args.epochs):
             _, predicted = torch.max(pred.data, 1)
             total += pred.size(0)
             correct_classified += (predicted == labels).sum().item()
-            if(j % iter_print == 0):
-                print('val j = {}, correct classified = {}'.format(j, correct_classified)) 
+            #if(j % iter_print == 0):
+            #    print('val j = {}, correct classified = {}'.format(j, correct_classified)) 
+        val_epoch_loss = np.mean(val_epoch_loss_list)
+        #scheduler_reduce.step(val_epoch_loss)
+        #scheduler_m.step()
         val_acc = correct_classified/total*100
         print("Current epoch: {:03d}".format(ep), "\t Val accuracy:", val_acc, "%")
-        print('val loss: ', np.mean(val_epoch_loss_list))
+        print('val loss: ', val_epoch_loss)
         logging.info("Current epoch: {:03d}\t Val accuracy: {}%".format(ep, val_acc))
         writer.add_scalar('val/acc', val_acc, ep)
-        val_loss_list.append(np.mean(val_epoch_loss_list))
+        val_loss_list.append(val_epoch_loss)
         torch.save({
             'epoch':ep,
             'model':model.state_dict(),
@@ -453,14 +464,14 @@ trained_model = torch.load(os.path.join(log_dir,'checkpoint/best_checkpoint.pth'
 model.load_state_dict(trained_model['model'])
 
 #source: https://discuss.pytorch.org/t/how-can-i-extract-intermediate-layer-output-from-loaded-cnn-model/77301/2
-activation = {}
-def get_activation(name):
-    def hook(model, input, output):
-        activation[name] = output.detach()
-    return hook
-model.linear.register_forward_hook(get_activation('linear'))
+#activation = {}
+#def get_activation(name):
+#    def hook(model, input, output):
+#        activation[name] = output.detach()
+#    return hook
+#model.linear.register_forward_hook(get_activation('linear'))
 #output = model(x)
-print('activation[linear]: ', activation[linear])
+#print('activation[linear]: ', activation[linear])
 """
 a_batch_img, _ = next(iter(train_loader))
 print('a batch img shape: ', a_batch_img.shape)
@@ -472,63 +483,6 @@ num_zeros = total_shape - non_zeros
 print('Input fmap: count zeros: total - nonzero = {} - {} = {}'.format(total_shape, non_zeros, num_zeros))
 images_out = a_batch_img.to(device)
 
-for i, layer in enumerate(model.children()):
-    #feed input to layer
-    #take output, set as input for next layer in the loop
-    if(type(layer) == nn.Conv2d):
-        print(i, '- layer: ', layer)
-        print('input shape: ', images_out.shape)
-        images_out = layer(images_out)
-        print('layer weights shape: ', layer.weight.shape)
-        print('layer out shape: ', images_out.shape)
-        non_zeros = torch.count_nonzero(images_out)
-        w_non_zeros = torch.count_nonzero(layer.weight)
-        total_shape = torch.prod(torch.tensor(images_out.shape)) #or use numel()
-        w_total_shape = torch.prod(torch.tensor(layer.weight.shape))
-        num_zeros = total_shape - non_zeros
-        w_num_zeros = w_total_shape - w_non_zeros
-        print('Weights: min={}, max={}'.format(torch.min(layer.weight), torch.max(layer.weight)))
-        print('Weights: count zeros: w_total - w_nonzero = {} - {} = {}'.format(
-            w_total_shape, w_non_zeros, w_num_zeros))
-        print('Output: min={}, max={}'.format(torch.min(images_out), torch.max(images_out)))
-        print('Output: count zeros: total - nonzero = {} - {} = {}'.format(total_shape, non_zeros, num_zeros))
-        #feed to next layer
-    elif(type(layer) == nn.Sequential):
-        for j, a_layer in enumerate(layer):
-            if(type(a_layer) == custom_models.BasicBlock):
-                #print('BasicBlock layer: ', a_layer)
-                for k, aa_layer in enumerate(a_layer.children()):
-                    print('input shape: ', images_out.shape)
-                    images_out = aa_layer(images_out)
-                    print('min={}, max={} layer type={}'.format(torch.min(images_out), 
-                        torch.max(images_out), type(aa_layer)))
-                    if(type(aa_layer) == nn.Conv2d):
-                        print('{}.{}.{}- layer: {}'.format(i,j,k, aa_layer))
-                        print('layer weights shape: ', aa_layer.weight.shape)
-                        w_non_zeros = torch.count_nonzero(aa_layer.weight)
-                        w_total_shape = torch.prod(torch.tensor(aa_layer.weight.shape))
-                        w_num_zeros = w_total_shape - w_non_zeros
-                        print('Weights: count zeros. w_total - w_nonzero = {} - {} = {}'.format(
-                                                        w_total_shape, w_non_zeros, w_num_zeros))
-                        non_zeros = torch.count_nonzero(images_out)
-                        total_shape = torch.prod(torch.tensor(images_out.shape))
-                        num_zeros = total_shape - non_zeros
-                        print('layer out shape: ', images_out.shape)
-                        print('Output: count zeros. total - nonzero = {} - {} = {}'.format(
-                            total_shape, non_zeros, num_zeros))
-
-                    else:
-                        print('{}.{}.{}- not conv2d layer type: {}'.format(i,j,k, type(aa_layer)))
-            else:
-                print('{}.{}- not BasicBlock layer type: {}'.format(i,j, type(a_layer)))
-    else:
-        print('layer not conv2d and not sequential, type=', type(layer))
-        print('input shape: ', images_out.shape)
-        images_out = layer(images_out)
-        print('min={}, max={}'.format(torch.min(images_out), 
-            torch.max(images_out)))
-"""
-exit()
 num_zeros = 0
 #TODO: check values of state dict
 #source:
@@ -611,6 +565,7 @@ for feature_map in outputs:
 
 
 exit()
+"""
 print("The best checkpoint is loaded")
 logging.info("The last checkpoint is loaded")
 model.eval()
@@ -624,7 +579,8 @@ with torch.no_grad():
         images = images.to(device)
         labels = labels.to(device)
         y_true.append(labels.item())
-        pred = model(images)
+        output = model(images)
+        pred = output[0]
         _, predicted = torch.max(pred.data, 1)
         y_pred.append(predicted.item())
         total += pred.size(0)

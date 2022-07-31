@@ -7,7 +7,7 @@ from custom_modules import *
 #https://github.com/XHPlus/IR-Net/blob/master/resnet-20-cifar10/1w1a/resnet.py
 #https://github.com/akamaster/pytorch_resnet_cifar10/blob/master/resnet.py
 
-__all__ = ['resnet20_quant', 'resnet20_fp', 'resnet20_test']
+__all__ = ['resnet20_quant', 'resnet20_fp']
 
 class LambdaLayer(nn.Module):
     def __init__(self, lambd):

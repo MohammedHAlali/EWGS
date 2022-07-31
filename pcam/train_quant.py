@@ -35,8 +35,8 @@ parser.add_argument('--seed', type=int, default=None, help='seed for initializat
 # training settings
 parser.add_argument('--batch_size', type=int, default=32, help='mini-batch size for training')
 parser.add_argument('--epochs', type=int, default=1, help='number of epochs for training')
-parser.add_argument('--optimizer_m', type=str, default='Adam', choices=('SGD','Adam'), help='optimizer for model paramters')
-parser.add_argument('--optimizer_q', type=str, default='Adam', choices=('SGD','Adam'), help='optimizer for quantizer paramters')
+parser.add_argument('--optimizer_m', type=str, default='SGD', choices=('SGD','Adam'), help='optimizer for model paramters')
+parser.add_argument('--optimizer_q', type=str, default='SGD', choices=('SGD','Adam'), help='optimizer for quantizer paramters')
 parser.add_argument('--lr_m', type=float, default=1e-3, help='learning rate for model parameters')
 parser.add_argument('--lr_q', type=float, default=1e-5, help='learning rate for quantizer parameters')
 parser.add_argument('--lr_m_end', type=float, default=0.0, help='final learning rate for model parameters (for cosine)')
@@ -243,7 +243,8 @@ if args.lr_scheduler_m == "step":
         milestones_m = [args.epochs+1]
     scheduler_m = torch.optim.lr_scheduler.MultiStepLR(optimizer_m, milestones=milestones_m, gamma=args.gamma)
 elif args.lr_scheduler_m == "cosine":
-    scheduler_m = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_m, T_max=args.epochs, eta_min=args.lr_m_end)
+    scheduler_m = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_m, T_max=args.epochs, 
+            eta_min=args.lr_m_end, verbose=True)
 # scheduler for quantizer params
 if args.lr_scheduler_q == "step":
     if args.decay_schedule_q is not None:
@@ -252,7 +253,8 @@ if args.lr_scheduler_q == "step":
         milestones_q = [args.epochs+1]
     scheduler_q = torch.optim.lr_scheduler.MultiStepLR(optimizer_q, milestones=milestones_q, gamma=args.gamma)
 elif args.lr_scheduler_q == "cosine":
-    scheduler_q = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_q, T_max=args.epochs, eta_min=args.lr_q_end)
+    scheduler_q = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer_q, T_max=args.epochs, 
+            eta_min=args.lr_q_end, verbose=True)
 
 criterion = nn.CrossEntropyLoss()
 
@@ -293,7 +295,8 @@ for ep in range(args.epochs):
         optimizer_m.zero_grad()
         optimizer_q.zero_grad()
             
-        pred = model(images)
+        output = model(images)
+        pred = output[0]
         loss_t = criterion(pred, labels)
         if(i % iter_print == 0):
             print(i, '- batch shape: ', images.shape, ' loss: ', loss_t.item())
@@ -333,7 +336,8 @@ for ep in range(args.epochs):
         for j, (images, labels) in enumerate(val_loader):
             images = images.to(device)
             labels = labels.to(device)
-            pred = model(images)
+            output = model(images)
+            pred = output[0]
             val_loss = criterion(pred, labels)
             val_epoch_loss_list.append(val_loss.item())
             _, predicted = torch.max(pred.data, 1)
@@ -422,7 +426,8 @@ with torch.no_grad():
         images = images.to(device)
         labels = labels.to(device)
         y_true.append(labels.item())
-        pred = model(images)
+        output = model(images)
+        pred = output[0]
         _, predicted = torch.max(pred.data, 1)
         y_pred.append(predicted.item())
         total += pred.size(0)

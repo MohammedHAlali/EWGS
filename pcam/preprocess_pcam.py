@@ -5,12 +5,13 @@ import glob
 from PIL import Image
 import numpy as np
 
-base_path = '/work/deogun/alali/data/pcam_gs224'
-out_path = '/work/deogun/alali/data/pcam_gs224_sp200'
+base_path = '/work/deogun/alali/data/pcam_rgb224'
+out_path = '/work/deogun/alali/data/pcam_rgb224_sp'
 if(not os.path.exists(out_path)):
     os.mkdir(out_path)
 s_threshold = 200 #try 220 and 180
-for phase in os.listdir(base_path):
+#for phase in os.listdir(base_path): #update to only process training
+for phase in ['train']:
     print('starting phase: ', phase)
     phase_path = os.path.join(base_path, phase)
     out_phase_path = os.path.join(out_path, phase)
@@ -51,7 +52,7 @@ for phase in os.listdir(base_path):
             im = Image.fromarray(new_img)
             im.save(save_path)
             if(i % 500 == 0):
-                print('image shape: ', np_im.shape, ' type: ', np_im.dtype)
+                print(i, '- image shape: ', np_im.shape, ' type: ', np_im.dtype)
                 print('image SAVED: ', save_path)
                 print('whitish ratio: ', whitish_ratio)
         out_filenames = os.listdir(out_class_path)
